@@ -1,0 +1,325 @@
+Absolutely. Here is the complete, single-file code for the JavaScript learning quiz app.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JS Flashcard Quiz</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Define custom fonts to be used with Tailwind */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        pre, code {
+            font-family: 'Fira Code', monospace;
+        }
+
+        /* * Card flip animation setup 
+         * The parent container needs 'perspective' to create the 3D space.
+        */
+        .perspective-container {
+            perspective: 1000px;
+        }
+        /* The flipper element uses transform-style to ensure its children are positioned in the 3D space. */
+        .flipper {
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            position: relative;
+        }
+        /* The 'is-flipped' class is added via JavaScript to trigger the rotation. */
+        .is-flipped {
+            transform: rotateY(180deg);
+        }
+        /* The front and back faces of the card. */
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden; /* Safari */
+            backface-visibility: hidden;
+            border-radius: 0.75rem; /* Corresponds to rounded-xl */
+        }
+        /* Front face is initially visible. */
+        .card-front {
+            z-index: 2;
+        }
+        /* Back face is rotated 180 degrees to be hidden initially. */
+        .card-back {
+            transform: rotateY(180deg);
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 text-gray-200 flex items-center justify-center min-h-screen p-4">
+
+    <main id="app" class="w-full max-w-2xl mx-auto">
+        
+        <header class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl md:text-3xl font-bold text-cyan-400">JavaScript Mastery Quiz</h1>
+            <div class="text-right">
+                <p class="text-sm text-gray-400">SCORE</p>
+                <p id="score" class="text-2xl font-bold">0</p>
+            </div>
+        </header>
+
+        <div id="card-container" class="perspective-container w-full h-96 mb-6">
+            <div id="flipper" class="flipper w-full h-full">
+                
+                <div id="card-front" class="card-face card-front bg-gray-800 shadow-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer ring-2 ring-gray-700">
+                    <div id="question-text" class="text-xl md:text-2xl font-semibold mb-4"></div>
+                    <pre class="bg-gray-900 p-4 rounded-lg w-full max-w-md overflow-x-auto"><code id="question-code" class="text-left text-sm text-yellow-300"></code></pre>
+                    <p class="mt-8 text-gray-400 animate-pulse">Click to reveal answers</p>
+                </div>
+
+                <div id="card-back" class="card-face card-back bg-gray-800 shadow-xl p-6 ring-2 ring-gray-700">
+                    <div id="answer-options" class="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
+                        </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-center">
+            <button id="next-button" class="hidden bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-8 rounded-lg transition-all duration-200">
+                Next Question &rarr;
+            </button>
+        </div>
+
+        <div id="end-screen" class="hidden text-center p-8 bg-gray-800 rounded-xl shadow-xl">
+            <h2 class="text-3xl font-bold mb-2">Quiz Complete!</h2>
+            <p class="text-xl text-gray-400 mb-6">You've mastered the basics.</p>
+            <p class="text-lg mb-2">Your Final Score:</p>
+            <p id="final-score" class="text-6xl font-bold text-cyan-400 mb-8">0 / 20</p>
+            <button id="restart-button" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition-all duration-200">
+                Try Again
+            </button>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DATA: Quiz Questions ---
+            const quizData = [
+                {
+                    question: "Which keyword cannot be used to re-assign a value to a variable?",
+                    code: `// Which variable declaration prevents this? \nvarName = "new value";`,
+                    answers: [
+                        { text: "var", correct: false },
+                        { text: "let", correct: false },
+                        { text: "const", correct: true },
+                        { text: "static", correct: false },
+                    ]
+                },
+                {
+                    question: "What will be the output of `typeof null`?",
+                    code: `console.log(typeof null);`,
+                    answers: [
+                        { text: "null", correct: false },
+                        { text: "object", correct: true },
+                        { text: "undefined", correct: false },
+                        { text: "string", correct: false },
+                    ]
+                },
+                {
+                    question: "Which operator performs a strict equality check, without type coercion?",
+                    code: `const num = 5; \nconst str = "5"; \n// Which operator returns false?`,
+                    answers: [
+                        { text: "==", correct: false },
+                        { text: "!=", correct: false },
+                        { text: "===", correct: true },
+                        { text: "!==", correct: false },
+                    ]
+                },
+                {
+                    question: "What is the primary benefit of an arrow function `() => {}`?",
+                    code: `const add = (a, b) => a + b;`,
+                    answers: [
+                        { text: "It supports hoisting.", correct: false },
+                        { text: "It has its own 'this' context.", correct: false },
+                        { text: "It has a shorter syntax.", correct: true },
+                        { text: "It must always have a return statement.", correct: false },
+                    ]
+                },
+                {
+                    question: "Which method creates a new array by transforming every element in an existing array?",
+                    code: `const numbers = [1, 2, 3]; \nconst doubled = numbers.???(n => n * 2);`,
+                    answers: [
+                        { text: ".forEach()", correct: false },
+                        { text: ".map()", correct: true },
+                        { text: ".filter()", correct: false },
+                        { text: ".reduce()", correct: false },
+                    ]
+                },
+                {
+                    question: "How do you access the 'city' property from the `user` object?",
+                    code: `const user = { name: "Alex", city: "New York" };`,
+                    answers: [
+                        { text: "user['city']", correct: true },
+                        { text: "user.get('city')", correct: false },
+                        { text: "user->city", correct: false },
+                        { text: "user('city')", correct: false },
+                    ]
+                },
+                {
+                    question: "What is the correct way to get the first element from an array using destructuring?",
+                    code: `const fruits = ["apple", "banana", "cherry"];`,
+                    answers: [
+                        { text: "const { first } = fruits;", correct: false },
+                        { text: "const [first] = fruits;", correct: true },
+                        { text: "const [0: first] = fruits;", correct: false },
+                        { text: "const { 0: first } = fruits;", correct: false },
+                    ]
+                },
+                {
+                    question: "Which operator is used to combine two arrays into a new one?",
+                    code: `const arr1 = [1, 2]; \nconst arr2 = [3, 4]; \nconst combined = [???arr1, ???arr2];`,
+                    answers: [
+                        { text: "...", correct: true },
+                        { text: "&&", correct: false },
+                        { text: "++", correct: false },
+                        { text: "||", correct: false },
+                    ]
+                },
+                {
+                    question: "How do you handle a successful resolution of a Promise?",
+                    code: `myPromise.???(result => { \n  console.log("Success!"); \n});`,
+                    answers: [
+                        { text: ".catch()", correct: false },
+                        { text: ".finally()", correct: false },
+                        { text: ".then()", correct: true },
+                        { text: ".resolve()", correct: false },
+                    ]
+                },
+                 {
+                    question: "Which loop is best suited for iterating over the values of an iterable, like an array?",
+                    code: `const colors = ["red", "green", "blue"];`,
+                    answers: [
+                        { text: "for...in", correct: false },
+                        { text: "for...of", correct: true },
+                        { text: "for (i=0; i<colors.length)", correct: false },
+                        { text: "while", correct: false },
+                    ]
+                },
+                {
+                    question: "In the global scope, what does the `this` keyword refer to?",
+                    code: `console.log(this);`,
+                    answers: [
+                        { text: "The current function", correct: false },
+                        { text: "The `window` object (in browsers)", correct: true },
+                        { text: "null", correct: false },
+                        { text: "The parent object", correct: false },
+                    ]
+                },
+                {
+                    question: "Which of the following values is 'falsy' in JavaScript?",
+                    code: `if (???) { // this code will not run }`,
+                    answers: [
+                        { text: "'0'", correct: false },
+                        { text: "{}", correct: false },
+                        { text: "[]", correct: false },
+                        { text: "0", correct: true },
+                    ]
+                },
+                {
+                    question: "How do you select an HTML element with the id 'title'?",
+                    code: `// How to get the h1 element? \n<h1 id="title">Hello</h1>`,
+                    answers: [
+                        { text: "document.querySelector('#title')", correct: true },
+                        { text: "document.select('#title')", correct: false },
+                        { text: "document.query('.title')", correct: false },
+                        { text: "document.getElement('.title')", correct: false },
+                    ]
+                },
+                {
+                    question: "Which method is used to attach an event handler to an element?",
+                    code: `const button = document.getElementById('myBtn');`,
+                    answers: [
+                        { text: "button.onClick = function() {}", correct: false },
+                        { text: "button.handler('click', function)", correct: false },
+                        { text: "button.listen('click', function)", correct: false },
+                        { text: "button.addEventListener('click', function)", correct: true },
+                    ]
+                },
+                {
+                    question: "What is the equivalent of this `if...else` statement using the ternary operator?",
+                    code: `let result; \nif (score > 10) { \n  result = "Win"; \n} else { \n  result = "Loss"; \n}`,
+                    answers: [
+                        { text: `let result = score > 10 ? "Win" : "Loss";`, correct: true },
+                        { text: `let result = score > 10 : "Win" ? "Loss";`, correct: false },
+                        { text: `let result = if (score > 10) "Win" else "Loss";`, correct: false },
+                        { text: `let result = score > 10 && "Win" || "Loss";`, correct: false },
+                    ]
+                },
+                {
+                    question: "What is the modern way to embed a variable within a string?",
+                    code: `const name = "World";`,
+                    answers: [
+                        { text: `"Hello, " + name + "!"`, correct: false },
+                        { text: "'Hello, ' + name + '!'", correct: false },
+                        { text: "`Hello, ${name}!`", correct: true },
+                        { text: "('Hello, ', name, '!')", correct: false },
+                    ]
+                },
+                {
+                    question: "What does `JSON.stringify()` do?",
+                    code: `const user = { name: "John", age: 30 };`,
+                    answers: [
+                        { text: "Parses a JSON string into an object", correct: false },
+                        { text: "Converts a JavaScript object to a JSON string", correct: true },
+                        { text: "Validates if an object is in JSON format", correct: false },
+                        { text: "Minifies a JavaScript object", correct: false },
+                    ]
+                },
+                 {
+                    question: "What is the output of this `async` function call?",
+                    code: `async function getData() { return "Data"; } \ngetData().then(console.log);`,
+                    answers: [
+                        { text: "Promise {<pending>}", correct: false },
+                        { text: "An error is thrown", correct: false },
+                        { text: "Data", correct: true },
+                        { text: "undefined", correct: false },
+                    ]
+                },
+                {
+                    question: "Which method checks if a variable is an array?",
+                    code: `const data = [1, 2, 3];`,
+                    answers: [
+                        { text: "typeof data === 'array'", correct: false },
+                        { text: "data.isArray()", correct: false },
+                        { text: "Array.isArray(data)", correct: true },
+                        { text: "data instanceof Array", correct: false },
+                    ]
+                },
+                {
+                    question: "What will `arr.filter()` return?",
+                    code: `const arr = [1, 'a', 2, 'b', 3, 'c']; \nconst result = arr.filter(item => typeof item === 'number');`,
+                    answers: [
+                        { text: `[1, 2, 3]`, correct: true },
+                        { text: `['a', 'b', 'c']`, correct: false },
+                        { text: `[true, false, true, false, true, false]`, correct: false },
+                        { text: `[1, 'a', 2, 'b', 3, 'c']`, correct: false },
+                    ]
+                }
+            ];
+
+            // --- STATE MANAGEMENT ---
+            let currentQuestionIndex = 0;
+            let score = 0;
+            let isCardFlipped = false;
+            let questionAnswered = false; // Prevents multiple clicks from adding score
+
+            // --- DOM ELEMENTS ---
+            const scoreDisplay = document.getElementById('score');
+            const questionText = document.getElementById('question-text');
+            const questionCode = document.getElementById('question-code');
+            const answerOptionsContainer = document.getElementById('answer-options');
+            const nextButton = document
+```
